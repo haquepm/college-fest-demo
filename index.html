@@ -133,7 +133,7 @@ seed();render();if(state.page==='certificates')renderCert();
     if(!host)return;
     if(!student){host.innerHTML='<div class="notice" style="background:#fff0f1;color:#a22">No candidate found for chest number '+esc(clean)+'.</div>';return;}
     const regs=state.regs.filter(r=>r.studentId===student.id), items=regs.map(r=>state.items.find(x=>x.id===r.itemId)).filter(Boolean), allDone=regs.length>0&&regs.every(r=>state.reported.has(r.id));
-    host.innerHTML='<div class="panel" style="margin-top:14px"><div class="eyebrow">CANDIDATE IDENTIFIED</div><h2 style="margin:6px 0">'+esc(student.name)+'</h2><div class="muted">'+esc(student.chest)+' · '+esc(student.roll)+' · '+esc(student.dept)+' · '+esc(student.group)+'</div><h3 style="margin:18px 0 8px">Registered programme items ('+items.length+')</h3>'+(items.length?'<ul style="padding-left:20px;line-height:1.9">'+items.map((it,i)=>'<li>'+esc(it.name)+' <span class="tag">'+esc(it.type)+'</span> <span class="tag '+(state.reported.has(regs[i]?.id)?'':'amber')+'">'+(state.reported.has(regs[i]?.id)?'Reported':'Pending')+'</span></li>').join('')+'</ul>':'<div class="muted">No programme registrations found for this candidate.</div>')+'<button class="btn" style="margin-top:12px" '+(!regs.length||allDone?'disabled':'')+' onclick="markStageCandidate('+student.id+')">'+(allDone?'✓ Candidate already reported':'Confirm candidate reported')+'</button></div>';
+    host.innerHTML='<div class="panel" style="margin-top:14px"><div class="eyebrow">CANDIDATE IDENTIFIED</div><h2 style="margin:6px 0">'+esc(student.name)+'</h2><div class="muted">'+esc(student.chest)+' · '+esc(student.roll)+' · '+esc(student.dept)+' · '+esc(student.group)+'</div><h3 style="margin:18px 0 8px">Registered programme items ('+items.length+')</h3>'+(items.length?'<ul style="padding-left:20px;line-height:1.9">'+items.map((it,i)=>'<li>'+esc(it.name)+' <span class="tag">'+esc(it.type)+'</span> <span class="tag '+(state.reported.has(regs[i]?.id)?'':'amber')+'">'+(state.reported.has(regs[i]?.id)?'Reported':'Pending')+'</span></li>').join('')+'</ul>':'<div class="muted">No programme registrations found for this candidate.</div>')+(allDone?'<button class="btn secondary" style="margin-top:12px" onclick="stageNextCandidate()">Next candidate scan →</button>':'<button class="btn" style="margin-top:12px" '+(!regs.length?'disabled':'')+' onclick="markStageCandidate('+student.id+')">Confirm candidate reported</button>')+'</div>';
   };
   window.stageCandidateScanned=function(decoded){
     if(stageScanLocked)return;
@@ -141,6 +141,12 @@ seed();render();if(state.page==='certificates')renderCert();
     if(!chest)return;stageScanLocked=true;
     const input=$('chestInput');if(input)input.value=chest;stageCandidateMarkup(chest);
     const status=$('stageScanStatus');if(status)status.textContent='Candidate scanned. Verify details and confirm reporting; camera remains active.';
+  };
+  window.stageNextCandidate=function(){
+    stageScanLocked=false;
+    const input=$('chestInput');if(input)input.value='';
+    const host=$('stageCandidate');if(host)host.innerHTML='';
+    const status=$('stageScanStatus');if(status)status.textContent='Camera active. Ready to scan the next candidate QR code.';
   };
   window.lookupStageCandidate=function(){stageCandidateMarkup($('chestInput')?.value||'');};
   window.markStageCandidate=function(studentId){
