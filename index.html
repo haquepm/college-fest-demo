@@ -142,50 +142,71 @@ seed();render();if(state.page==='certificates')renderCert();if(state.page==='sta
 (function(){
  const SUPABASE_URL='https://bczumadufjquimjlydev.supabase.co';
  const SUPABASE_KEY='sb_publishable_TTSjGJSlktYJPyckc_aDwg_1Yh50_qQ';
- const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
  const gate=document.getElementById('authGate'),err=document.getElementById('authError');
- let currentUser=null,loadingRemote=false;
+ const button=document.getElementById('authLogin'),emailEl=document.getElementById('authEmail'),passEl=document.getElementById('authPassword');
+ let db=null,currentUser=null,loadingRemote=false,channel=null;
+ const setError=m=>{err.textContent=m||''};
+ const setSync=m=>{const el=document.getElementById('syncStatus');if(el)el.textContent=m};
  const snapshot=()=>({students:state.students,groups:state.groups,items:state.items,regs:state.regs,scores:state.scores,reported:[...state.reported],published:state.published});
  const originalPersist=persist;
- window.persist=function(){
+ persist=function(){
    originalPersist();
-   if(!currentUser||loadingRemote)return;
+   if(!currentUser||loadingRemote||!db)return;
    db.from('fest_demo_state').upsert({institution_slug:'advanta-institute-demo',payload:snapshot(),updated_at:new Date().toISOString(),updated_by:currentUser.id},{onConflict:'institution_slug'})
-    .then(({error})=>{if(error){console.error(error);toast('Cloud save failed: '+error.message)}else setSync('Saved to cloud')});
+    .then(({error})=>{if(error){console.error('FestFlow cloud save:',error);toast('Cloud save failed: '+error.message)}else setSync('Saved to cloud')})
+    .catch(e=>{console.error(e);toast('Cloud save failed. Check connection.')});
  };
- function setSync(s){let el=document.getElementById('syncStatus');if(el)el.textContent=s}
  function applyPayload(p){if(!p)return;loadingRemote=true;
    ['students','groups','items','regs','scores','published'].forEach(k=>{if(p[k]!==undefined)state[k]=p[k]});
    state.reported=new Set(p.reported||[]);loadingRemote=false;
  }
  async function enter(user){
-   currentUser=user;setSync('Connecting…');
+   currentUser=user;setSync('Connecting…');setError('');
    const {data,error}=await db.from('fest_demo_state').select('payload').eq('institution_slug','advanta-institute-demo').maybeSingle();
-   if(error){err.textContent='Database access error: '+error.message;currentUser=null;return}
-   if(data?.payload){applyPayload(data.payload)}
-   else {window.persist()}
+   if(error){currentUser=null;setError('Database access error: '+error.message);return false}
+   if(data&&data.payload){applyPayload(data.payload)}
+   else {persist()}
    gate.style.display='none';
    const top=document.querySelector('.topright');
-   if(top&&!document.getElementById('syncStatus')){let s=document.createElement('span');s.id='syncStatus';s.className='sync-indicator';s.textContent='Cloud synced';top.prepend(s);let b=document.createElement('button');b.className='btn secondary small';b.textContent='Sign out';b.onclick=async()=>{await db.auth.signOut();location.reload()};top.append(b)}
+   if(top&&!document.getElementById('syncStatus')){const x=document.createElement('span');x.id='syncStatus';x.className='sync-indicator';top.prepend(x)}
+   if(top&&!document.getElementById('festSignOut')){const b=document.createElement('button');b.id='festSignOut';b.className='btn secondary small';b.textContent='Sign out';b.onclick=async()=>{await db.auth.signOut();location.reload()};top.append(b)}
    render();setSync('Cloud synced');
-   db.channel('fest-demo-live').on('postgres_changes',{event:'*',schema:'public',table:'fest_demo_state',filter:'institution_slug=eq.advanta-institute-demo'},async payload=>{
-     if(payload.new?.updated_by===currentUser.id)return;
-     const {data}=await db.from('fest_demo_state').select('payload').eq('institution_slug','advanta-institute-demo').maybeSingle();
-     if(data?.payload){applyPayload(data.payload);render();setSync('Updated from another session')}
+   if(channel)db.removeChannel(channel);
+   channel=db.channel('fest-demo-live').on('postgres_changes',{event:'*',schema:'public',table:'fest_demo_state',filter:'institution_slug=eq.advanta-institute-demo'},async event=>{
+     if(event.new&&event.new.updated_by===currentUser.id)return;
+     const {data:latest,error:readError}=await db.from('fest_demo_state').select('payload').eq('institution_slug','advanta-institute-demo').maybeSingle();
+     if(!readError&&latest?.payload){applyPayload(latest.payload);render();setSync('Updated from another session')}
    }).subscribe();
+   return true;
  }
- document.getElementById('authLogin').addEventListener('click',async()=>{
-   err.textContent='';let email=document.getElementById('authEmail').value.trim(),password=document.getElementById('authPassword').value;
-   if(!email||!password){err.textContent='Enter your admin email and password.';return}
-   let b=document.getElementById('authLogin');b.disabled=true;b.textContent='Signing in…';
-   const {data,error}=await db.auth.signInWithPassword({email,password});
-   b.disabled=false;b.textContent='Sign in to FestFlow';
-   if(error){err.textContent=error.message;return}await enter(data.user);
- });
- document.getElementById('authPassword').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('authLogin').click()});
- db.auth.getSession().then(({data})=>{if(data.session)enter(data.session.user)});
- db.auth.onAuthStateChange((event,session)=>{if(event==='SIGNED_OUT'){currentUser=null;gate.style.display='grid'}});
- const nav=document.querySelector('.topright');if(nav){let s=document.createElement('span');s.id='syncStatus';s.className='sync-indicator';s.textContent='Sign in required';nav.prepend(s)}
+ async function login(){
+   setError('');
+   const email=emailEl.value.trim(),password=passEl.value;
+   if(!email||!password){setError('Enter your admin email and password.');return}
+   if(!db){setError('Secure sign-in could not load. Refresh the page or check your internet connection.');return}
+   button.disabled=true;button.textContent='Signing in…';
+   try{
+     const {data,error}=await db.auth.signInWithPassword({email,password});
+     if(error){setError(error.message);return}
+     if(!data.user){setError('Sign-in returned no user. Please try again.');return}
+     await enter(data.user);
+   }catch(e){console.error('FestFlow sign-in:',e);setError(e?.message||'Sign-in failed. Please try again.')}
+   finally{button.disabled=false;button.textContent='Sign in to FestFlow'}
+ }
+ button.addEventListener('click',login);
+ passEl.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();login()}});
+ emailEl.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();passEl.focus()}});
+ async function init(){
+   try{
+     if(!window.supabase||typeof window.supabase.createClient!=='function')throw new Error('Supabase login library did not load. Please refresh or try another network.');
+     db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+     const {data,error}=await db.auth.getSession();
+     if(error)throw error;
+     if(data.session)await enter(data.session.user);
+   }catch(e){console.error('FestFlow auth initialization:',e);setError(e?.message||'Unable to initialize sign-in.')}
+ }
+ const nav=document.querySelector('.topright');if(nav&&!document.getElementById('syncStatus')){const x=document.createElement('span');x.id='syncStatus';x.className='sync-indicator';x.textContent='Sign in required';nav.prepend(x)}
+ init();
 })();
 </script>
 </body></html>
