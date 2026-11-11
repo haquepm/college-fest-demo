@@ -31,6 +31,7 @@
 <div class="content" id="view"></div></main></div>
 <div class="modalback" id="modalback"><div class="modal" id="modal"></div></div><div class="toast" id="toast"></div>
 <script>
+
 const depts=['Management','Computer Science','Commerce','English','Media Studies'],colors=['#7657df','#0d9670','#df8b36','#d75c88'];
 const first=['Aarav','Aadhya','Adil','Aisha','Akash','Ananya','Arjun','Diya','Faris','Gopika','Hari','Isha','Jithin','Kavya','Krishna','Meera','Nihal','Nisha','Rahul','Riya','Sanjay','Sneha','Tara','Varun','Zoya','Abhinav','Amala','Bilal','Devika','Fathima'];
 const last=['Nair','Menon','Thomas','Khan','Pillai','Varma','Joseph','Das','Rao','Sharma','Ali','George'];
@@ -83,13 +84,37 @@ function downloadStudents(){csvDownload('AIM-demo-students.csv',[['Name','Roll',
 function downloadGroupRoster(){csvDownload('AIM-demo-group-roster.csv',[['Name','Roll','Department','Group'],...state.students.map(s=>[s.name,s.roll,s.dept,s.group])])}
 function downloadRegs(){csvDownload('AIM-demo-registrations.csv',[['Chest','Student','Programme','Group','Reported'],...state.regs.map(r=>{let s=state.students.find(x=>x.id===r.studentId);return[s.chest,s.name,state.items.find(x=>x.id===r.itemId).name,s.group,state.reported.has(r.id)?'Yes':'No']})])}
 function openImport(){showModal('<h2>Bulk upload students</h2><div class="sub">Upload a CSV with Name, Roll Number, Department and Year columns.</div><div class="field"><label>STUDENT CSV FILE</label><input type="file" id="csvfile" accept=".csv,text/csv"></div><div class="notice">Demo import adds valid rows to this browser session. Duplicate roll numbers are skipped.</div><div class="modalactions"><button class="btn secondary" onclick="closeModal()">Cancel</button><button class="btn" onclick="importCsv()">Import students</button></div>')}
-function importCsv(){let f=document.getElementById('csvfile').files[0];if(!f){toast('Choose a CSV file');return}let reader=new FileReader();reader.onload=()=>{let lines=reader.result.split(/\r?\n/).filter(Boolean),head=lines.shift().toLowerCase().split(',');let count=0;lines.forEach(line=>{let a=line.split(',').map(x=>x.trim().replace(/^"|"$/g,'')),o={};head.forEach((h,i)=>o[h]=a[i]||'');let name=o.name||o['student name'],roll=o['roll number']||o.roll||('IMP'+Date.now()+count),dept=o.department||depts[0];if(name&&!state.students.some(s=>s.roll===roll)){let id=state.students.length+1;state.students.push({id,roll,name,dept,year:o.year||'I',group:state.groups[(id-1)%state.groups.length].name,chest:'AIM-'+String(id).padStart(4,'0')});count++}});persist();closeModal();render();toast(count+' student records imported.')}};reader.readAsText(f)}
+function importCsv(){
+  const file=document.getElementById('csvfile')?.files?.[0];
+  if(!file){toast('Choose a CSV file');return;}
+  const reader=new FileReader();
+  reader.onload=function(){
+    const lines=String(reader.result||'').split(/\r?\n/).filter(Boolean);
+    const headers=(lines.shift()||'').toLowerCase().split(',').map(x=>x.trim().replace(/^"|"$/g,''));
+    let count=0;
+    lines.forEach(line=>{
+      const cells=line.split(',').map(x=>x.trim().replace(/^"|"$/g,''));
+      const row={};headers.forEach((h,i)=>row[h]=cells[i]||'');
+      const name=row.name||row['student name'];
+      const roll=row['roll number']||row.roll||('IMP'+Date.now()+count);
+      const dept=row.department||depts[0];
+      if(name&&!state.students.some(st=>st.roll===roll)){
+        const id=state.students.length+1;
+        state.students.push({id,roll,name,dept,year:row.year||'I',group:state.groups[(id-1)%state.groups.length].name,chest:'AIM-'+String(id).padStart(4,'0')});
+        count++;
+      }
+    });
+    persist();closeModal();render();toast(count+' student records imported.');
+  };
+  reader.readAsText(file);
+}
 function addItem(){showModal('<h2>Add programme item</h2><div class="field"><label>ITEM NAME</label><input id="itemName" placeholder="e.g. Folk Dance"></div><div class="field"><label>PARTICIPATION FORMAT</label><select id="itemType"><option>Individual</option><option>Group</option></select></div><div class="field"><label>CATEGORY</label><input id="itemCat" placeholder="e.g. Dance"></div><div class="modalactions"><button class="btn secondary" onclick="closeModal()">Cancel</button><button class="btn" onclick="saveItem()">Create item</button></div>')}
 function saveItem(){let name=document.getElementById('itemName').value.trim();if(!name)return toast('Enter an item name');state.items.push({id:state.items.length+1,name,type:document.getElementById('itemType').value,category:document.getElementById('itemCat').value||'General',status:'Open',criteria:[{name:'Content & originality',max:40},{name:'Execution',max:30},{name:'Presentation',max:20},{name:'Overall impact',max:10}]});persist();closeModal();render();toast('Programme item created with default judging criteria.')}
 function showModal(html){document.getElementById('modal').innerHTML=html;document.getElementById('modalback').classList.add('show')}function closeModal(){document.getElementById('modalback').classList.remove('show')}
 document.getElementById('nav').addEventListener('click',e=>{let b=e.target.closest('button[data-page]');if(b)setPage(b.dataset.page)});
 
 seed();render();if(state.page==='certificates')renderCert();if(state.page==='stage'&&window.QRCode)new QRCode(document.getElementById('qrDemo'),{text:'AIM-0001',width:110,height:110});
+
 </script>
 <script>
 /* FestFlow functional demo upgrades */
