@@ -82,6 +82,45 @@ input,select{min-height:42px}
 }
 @media(min-width:701px){.mobile-nav{display:none!important}}
 .stage-candidate-modal{display:none;position:fixed;inset:0;z-index:60;background:#17132bb8;align-items:center;justify-content:center;padding:18px}.stage-candidate-modal.show{display:flex}.stage-candidate-dialog{background:#fff;width:min(520px,100%);max-height:85dvh;overflow:auto;border-radius:20px;padding:22px;box-shadow:0 24px 70px #17132b35}.stage-candidate-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:17px}.stage-candidate-head h2{font:800 18px Manrope;margin:4px 0}.stage-modal-close{width:36px;height:36px;border-radius:50%;background:#f0edfa;color:#5540b4;font-size:25px;line-height:1}@media(max-width:700px){.stage-candidate-modal{padding:12px;align-items:flex-end}.stage-candidate-dialog{width:100%;max-height:82dvh;border-radius:20px 20px 12px 12px;padding:19px 16px calc(18px + env(safe-area-inset-bottom))}.stage-candidate-dialog .btn{min-height:50px;font-size:14px}}</style>
+
+<style id="festflow-ventixe-theme">
+:root{--ink:#20294f;--muted:#85879a;--purple:#e84ce8;--purple2:#f06cf0;--lime:#d8f36a;--bg:#f5f5f6;--line:#ececf2;--white:#fff;--green:#169b78;--red:#df5269;--shadow:0 5px 22px rgba(35,42,83,.045)}
+body{background:#f4f4f5;color:#242b50;font-family:'DM Sans',sans-serif}
+.app{gap:0;background:#f4f4f5;padding:10px;min-height:100vh}
+.sidebar{width:205px;background:#eeeefe;color:#344174;border-radius:17px;padding:22px 14px;position:sticky;top:10px;height:calc(100vh - 20px);overflow-y:auto}
+.brand{padding:2px 9px 28px}.brandmark{background:#f05cf0;color:#fff;border-radius:12px;width:36px;height:36px}.brand strong{color:#27345f;font-size:19px}.brand small{color:#65709a}
+.navlabel{color:#9295b0}.nav button{color:#53618f;border-radius:12px;padding:12px 13px;margin:3px 0}.nav button.active,.nav button:hover{background:#fff;color:#e34be6;box-shadow:0 3px 12px #343c7110}.nav button.active:before{content:"";position:absolute;left:0;width:3px;height:28px;background:#ed58ec;border-radius:0 4px 4px 0}.nav button{position:relative}
+.sidebottom{border-top:1px solid #dfe1f2;color:#667097}.demo-pill{background:#e6e6ff;color:#e14be5}
+.main{min-width:0;padding-left:10px}.topbar{height:70px;background:#fff;border:0;border-radius:15px;padding:0 22px;position:sticky;top:10px;z-index:5;box-shadow:0 3px 18px rgba(36,44,82,.035)}
+.crumb{color:#85879a}.crumb b{color:#27345f}.topright{gap:10px}.avatar{background:#f0eaff;color:#e34be6}.admin-access{background:#f1fbf7;border-color:#d8f1e5}
+.content{max-width:none;padding:22px 18px 35px}
+.pagehead{margin-bottom:19px}.pagehead h1{color:#29365f;font-size:28px}.eyebrow{color:#e24ce5}
+.btn{background:#e653e8;border-radius:10px;box-shadow:0 5px 14px #e653e822}.btn:hover{background:#d63bd9}.btn.secondary{background:#f0efff;color:#46538c;box-shadow:none}.btn.dark{background:#35427d}.btn.lime{background:#d8f36a;color:#29345c}
+.stat,.panel,.groupcard{border:0;border-radius:16px;box-shadow:0 4px 18px rgba(38,44,85,.045)}.stat{padding:18px}.staticon,.eventbadge,.groupdot{background:#fde8ff;color:#e34be6;border-radius:50%}
+.statnum{color:#35447f}.panel{padding:19px}.panel h3{color:#222}.panelhead{margin-bottom:17px}
+.notice{background:#f4efff;border-color:#e8ddff;color:#6554a0}.tag{background:#eaf8f2;color:#159a78}.tag.purple{background:#fce9ff;color:#d947df}.tag.amber{background:#fff4df;color:#a26b08}
+.search,.field input,.field select,.scoreinput{border-color:#e7e7ef;border-radius:10px;background:#fff;color:#29345f}.search:focus,input:focus,select:focus{border-color:#e653e8;box-shadow:0 0 0 3px #e653e815}
+th{background:#f8f8fb;color:#85879a}td{border-color:#f0f0f4;color:#303653}
+.scorehero{background:linear-gradient(115deg,#35427d,#4c5797);border-radius:17px}.rank{color:#ff8bfa}
+.certificate{border-color:#f0d8f2;background:linear-gradient(135deg,#fff,#fff6ff)}
+.modal,.stage-candidate-dialog{border-radius:19px;box-shadow:0 24px 70px rgba(28,34,70,.18)}
+.toast{background:#303d78;border-radius:12px}
+.mobile-nav{background:rgba(255,255,255,.97);border-top:1px solid #e9e9f0;box-shadow:0 -5px 24px rgba(30,37,76,.08)}
+.mobile-nav button{color:#8185a0}.mobile-nav button.active{background:#fdeaff;color:#d943df}
+.auth-gate{background:#f1f0ff}.auth-card{border:0;border-radius:24px;box-shadow:0 18px 55px rgba(38,43,89,.09)}.auth-card .brandmark{background:#e653e8;color:white}
+.stage-candidate-dialog{border:1px solid #eeeaf5}
+@media(min-width:701px){
+ .app{min-height:100vh}.sidebar{flex:0 0 205px}.main{flex:1}.content{padding:24px 20px 38px}
+ .stats{gap:12px}.stat{min-height:118px}.panel{margin-bottom:14px}
+}
+@media(max-width:700px){
+ .app{padding:0;display:block}.main{padding:0}.topbar{top:0;border-radius:0;height:60px;padding:0 13px}
+ .content{padding:18px 12px 28px}.pagehead h1{font-size:25px}
+ .panel,.stat,.groupcard{box-shadow:0 4px 17px rgba(38,44,85,.05)}
+ .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .mobile-nav button.active{background:#fdeaff}
+}
+</style>
 </head>
 <body>
 <div class="app">
