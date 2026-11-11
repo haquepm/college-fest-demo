@@ -121,6 +121,46 @@ seed();render();if(state.page==='certificates')renderCert();if(state.page==='sta
 (function(){
   const $=id=>document.getElementById(id);
   const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  let stageScanner=null, stageScanBusy=false;
+  const stageCandidateMarkup=function(chest){
+    const clean=String(chest||'').trim().toUpperCase(), student=state.students.find(x=>String(x.chest||'').toUpperCase()===clean), host=$('stageCandidate');
+    if(!host)return;
+    if(!student){host.innerHTML='<div class="notice" style="background:#fff0f1;color:#a22">No candidate found for chest number '+esc(clean)+'.</div>';return;}
+    const regs=state.regs.filter(r=>r.studentId===student.id), items=regs.map(r=>state.items.find(x=>x.id===r.itemId)).filter(Boolean), allDone=regs.length>0&&regs.every(r=>state.reported.has(r.id));
+    host.innerHTML='<div class="panel" style="margin-top:14px"><div class="eyebrow">CANDIDATE IDENTIFIED</div><h2 style="margin:6px 0">'+esc(student.name)+'</h2><div class="muted">'+esc(student.chest)+' · '+esc(student.roll)+' · '+esc(student.dept)+' · '+esc(student.group)+'</div><h3 style="margin:18px 0 8px">Registered programme items ('+items.length+')</h3>'+(items.length?'<ul style="padding-left:20px;line-height:1.9">'+items.map((it,i)=>'<li>'+esc(it.name)+' <span class="tag">'+esc(it.type)+'</span> <span class="tag '+(state.reported.has(regs[i]?.id)?'':'amber')+'">'+(state.reported.has(regs[i]?.id)?'Reported':'Pending')+'</span></li>').join('')+'</ul>':'<div class="muted">No programme registrations found for this candidate.</div>')+'<button class="btn" style="margin-top:12px" '+(!regs.length||allDone?'disabled':'')+' onclick="markStageCandidate('+student.id+')">'+(allDone?'✓ Candidate already reported':'Confirm candidate reported')+'</button></div>';
+  };
+  window.stageCandidateScanned=function(decoded){
+    let chest=String(decoded||'').trim();try{const data=JSON.parse(chest);if(data&&data.chest)chest=data.chest;}catch(e){}
+    const input=$('chestInput');if(input)input.value=chest;stageCandidateMarkup(chest);
+    if(stageScanner){stageScanner.stop().catch(()=>{});stageScanner.clear().catch(()=>{});stageScanner=null;}stageScanBusy=false;
+  };
+  window.lookupStageCandidate=function(){stageCandidateMarkup($('chestInput')?.value||'');};
+  window.markStageCandidate=function(studentId){
+    const regs=state.regs.filter(r=>r.studentId===studentId);if(!regs.length)return toast('No registrations found for this candidate');
+    regs.forEach(r=>state.reported.add(r.id));persist();const student=state.students.find(x=>x.id===studentId);render();toast((student?.name||'Candidate')+' marked as reported for '+regs.length+' programme item(s).');
+  };
+  window.startStageScanner=async function(){
+    const box=$('stageReader'),status=$('stageScanStatus');if(!box)return;if(!window.isSecureContext){if(status)status.textContent='Camera access requires HTTPS.';return;}
+    if(!navigator.mediaDevices?.getUserMedia){if(status)status.textContent='Camera scanning is unsupported. Enter the chest number manually.';return;}if(stageScanBusy)return;stageScanBusy=true;if(status)status.textContent='Requesting camera permission…';
+    try{
+      if(!window.Html5Qrcode)await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js';script.onload=resolve;script.onerror=()=>reject(new Error('QR scanner library failed to load.'));document.head.appendChild(script);});
+      if(!window.Html5Qrcode)throw new Error('QR scanner unavailable.');
+      stageScanner=new Html5Qrcode('stageReader');const cameras=await Html5Qrcode.getCameras();if(!cameras.length)throw new Error('No camera found.');
+      const camera=cameras.find(c=>/back|rear|environment/i.test(c.label))||cameras[cameras.length-1];
+      await stageScanner.start(camera.id,{fps:10,qrbox:{width:240,height:240},aspectRatio:1},decoded=>window.stageCandidateScanned(decoded),()=>{});
+      if(status)status.textContent='Camera active. Point it at the candidate QR code.';
+    }catch(err){stageScanBusy=false;stageScanner=null;if(status)status.textContent=(err?.message||'Camera could not start.')+' Enter the chest number manually.';}
+  };
+  window.stopStageScanner=async function(){if(stageScanner){try{await stageScanner.stop();await stageScanner.clear();}catch(e){}stageScanner=null;}stageScanBusy=false;const st=$('stageScanStatus');if(st)st.textContent='Scanner stopped.';};
+  stage=function(){
+    const pending=state.regs.filter(r=>!state.reported.has(r.id)).slice(0,12);
+    return head('Stage reporting desk','Scan a candidate QR code, verify their registered programme items, then confirm arrival.')+
+    '<div class="grid cols"><div>'+panel('Scan candidate QR','<div class="notice">Allow camera access when prompted. The rear camera is preferred on mobile.</div><div id="stageReader" style="width:100%;max-width:480px;margin:12px auto;overflow:hidden;border-radius:12px;background:#17152d;min-height:80px"></div><div class="toolbar"><button class="btn" onclick="startStageScanner()">▣ Open mobile camera</button><button class="btn secondary" onclick="stopStageScanner()">Stop camera</button></div><div id="stageScanStatus" class="muted" style="margin:8px 0 16px">Camera is off. Tap Open mobile camera to scan.</div><div class="field"><label>OR ENTER CHEST NUMBER</label><input id="chestInput" placeholder="e.g. AIM-0001" onkeydown="if(event.key===\'Enter\')lookupStageCandidate()"></div><button class="btn secondary" onclick="lookupStageCandidate()">Find candidate</button><div id="stageCandidate"></div>')+
+    panel('Pending candidates','<div class="tablewrap"><table><thead><tr><th>Chest no.</th><th>Candidate</th><th>Programme item</th><th></th></tr></thead><tbody>'+pending.map(r=>{const st=state.students.find(x=>x.id===r.studentId),it=state.items.find(x=>x.id===r.itemId);return st&&it?'<tr><td>'+esc(st.chest)+'</td><td>'+esc(st.name)+'</td><td>'+esc(it.name)+'</td><td><button class="btn small" onclick="lookupStageCandidateById('+st.id+')">View</button></td></tr>':''}).join('')+'</tbody></table></div>')+'</div><div>'+panel('Reported entries','<div class="statnum">'+state.reported.size+'</div><div class="muted">Programme registrations reported</div><div class="progress" style="margin:14px 0"><span style="width:'+Math.min(100,state.reported.size/Math.max(1,state.regs.length)*100)+'%"></span></div><div class="muted">Reported candidates become available to judges for the relevant programme items.</div>')+'</div></div>';
+  };
+  window.lookupStageCandidateById=function(id){const st=state.students.find(x=>x.id===id);if(st){const input=$('chestInput');if(input)input.value=st.chest;stageCandidateMarkup(st.chest);}};
+
   const oldStudents=students, oldGroups=groups, oldRegs=registrations, oldPrograms=programs;
   students=function(){
     return head('Student directory','Manage the complete student master, add records individually or import a CSV.','<button class="btn" onclick="addStudent()">＋ Add student</button>')+
