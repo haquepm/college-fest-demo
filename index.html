@@ -35,6 +35,7 @@ const depts=['Management','Computer Science','Commerce','English','Media Studies
 const first=['Aarav','Aadhya','Adil','Aisha','Akash','Ananya','Arjun','Diya','Faris','Gopika','Hari','Isha','Jithin','Kavya','Krishna','Meera','Nihal','Nisha','Rahul','Riya','Sanjay','Sneha','Tara','Varun','Zoya','Abhinav','Amala','Bilal','Devika','Fathima'];
 const last=['Nair','Menon','Thomas','Khan','Pillai','Varma','Joseph','Das','Rao','Sharma','Ali','George'];
 const state={page:'overview',role:'Fest Convenor',students:[],groups:[],items:[],regs:[],scores:{},reported:new Set(),published:false};
+window.festFlowState=state;
 function seed(){if(localStorage.getItem('festflow-demo-v1')){Object.assign(state,JSON.parse(localStorage.getItem('festflow-demo-v1')));state.reported=new Set(state.reported||[]);return}
 for(let i=1;i<=300;i++){let d=(i-1)%5;state.students.push({id:i,roll:'AIM26'+String(i).padStart(3,'0'),name:first[(i*7)%first.length]+' '+last[(i*3)%last.length],dept:depts[d],year:['I','II','III'][i%3],group:['Violet','Emerald','Amber','Coral'][i%4],chest:'AIM-'+String(i).padStart(4,'0')})}
 state.groups=['Violet','Emerald','Amber','Coral'].map((n,i)=>({name:n,dept:'Mixed departments',color:colors[i]}));
@@ -140,6 +141,8 @@ seed();render();if(state.page==='certificates')renderCert();if(state.page==='sta
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 (function(){
+ const state=window.festFlowState;
+ if(!state){const e=document.getElementById('authError');if(e)e.textContent='FestFlow workspace failed to initialise. Please reload and contact support if this persists.';return;}
  const URL='https://bczumadufjquimjlydev.supabase.co';
  const KEY='sb_publishable_TTSjGJSlktYJPyckc_aDwg_1Yh50_qQ';
  const $=id=>document.getElementById(id);
