@@ -162,6 +162,7 @@ state.reported=new Set(state.regs.filter(r=>r.reported).map(r=>r.id));persist()}
 function persist(){localStorage.setItem('festflow-demo-v1',JSON.stringify({...state,reported:[...state.reported]}))}
 function toast(s){let t=document.getElementById('toast');t.textContent=s;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500)}
 function setPage(p){state.page=p;document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===p));document.getElementById('crumb').textContent=({overview:'Overview',students:'Students',groups:'Groups & Departments',programs:'Programme items',registrations:'Registrations',schedule:'Venues & Schedule',stage:'Stage reporting',judgeDirectory:'Judge directory',judging:'Judges portal',results:'Results & scoreboard',certificates:'Certificates'})[p];render()}
+window.$=window.$||function(id){return document.getElementById(id);};
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function head(title,sub,action=''){return '<div class="pagehead"><div><div class="eyebrow">AIM FEST 2026 · DEMO</div><h1>'+title+'</h1><div class="sub">'+sub+'</div></div>'+action+'</div>'}
 function stat(label,num,foot,ico){return '<div class="stat"><div class="stathead"><span>'+label+'</span><span class="staticon">'+ico+'</span></div><div class="statnum">'+num+'</div><div class="statfoot">'+foot+'</div></div>'}
