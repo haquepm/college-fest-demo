@@ -168,6 +168,23 @@ seed();render();if(state.page==='certificates')renderCert();if(state.page==='sta
      }
      $('authGate').style.display='none';
      window.__festFlowCurrentUser=user;
+     if(!window.__festFlowPersistWrapped){
+       const basePersist=window.persist;
+       window.persist=function(){
+         if(typeof basePersist==='function')basePersist();
+         const u=window.__festFlowCurrentUser;if(!u)return;
+         const payload={students:state.students,groups:state.groups,items:state.items,regs:state.regs,scores:state.scores,reported:[...state.reported],published:state.published};
+         client.from('fest_demo_state').upsert({institution_slug:'advanta-institute-demo',payload,updated_at:new Date().toISOString(),updated_by:u.id},{onConflict:'institution_slug'})
+           .then(({error})=>{if(error){console.error('FestFlow cloud save:',error);const st=$('syncStatus');if(st)st.textContent='Cloud save failed';}else{const st=$('syncStatus');if(st)st.textContent='Cloud synced';}});
+       };
+       window.__festFlowPersistWrapped=true;
+     }
+     if(window.__festFlowChannel)client.removeChannel(window.__festFlowChannel);
+     window.__festFlowChannel=client.channel('festflow-live').on('postgres_changes',{event:'*',schema:'public',table:'fest_demo_state',filter:'institution_slug=eq.advanta-institute-demo'},async ev=>{
+       if(ev.new?.updated_by===window.__festFlowCurrentUser?.id)return;
+       const latest=await client.from('fest_demo_state').select('payload').eq('institution_slug','advanta-institute-demo').maybeSingle();
+       if(!latest.error&&latest.data?.payload){const p=latest.data.payload;['students','groups','items','regs','scores','published'].forEach(k=>{if(p[k]!==undefined)state[k]=p[k]});state.reported=new Set(p.reported||[]);localStorage.setItem('festflow-demo-v1',JSON.stringify({...state,reported:[...state.reported]}));if(typeof render==='function')render();}
+     }).subscribe();
      if(typeof render==='function')render();
      const top=document.querySelector('.topright');
      if(top&&!$('festSignOut')){const out=document.createElement('button');out.id='festSignOut';out.className='btn secondary small';out.textContent='Sign out';out.onclick=async()=>{await client.auth.signOut();location.reload()};top.append(out);}
