@@ -132,4 +132,60 @@ seed();render();if(state.page==='certificates')renderCert();if(state.page==='sta
   render();
 })();
 </script>
+
+<style>
+.auth-gate{position:fixed;inset:0;background:#f6f5fb;z-index:100;display:grid;place-items:center;padding:20px}.auth-card{width:min(430px,100%);background:#fff;border:1px solid #e9e7f1;border-radius:20px;padding:30px;box-shadow:0 20px 60px #30215b18}.auth-card .brandmark{margin-bottom:18px}.auth-card h1{font:800 24px Manrope;margin:0 0 8px}.auth-card p{font-size:12px;line-height:1.6;color:#77768b}.auth-card input{width:100%;padding:12px;border:1px solid #e9e7f1;border-radius:9px}.auth-card button{width:100%;margin-top:12px}.auth-error{color:#c43d54;font-size:11px;min-height:18px}.sync-indicator{font-size:10px;color:#178b62;font-weight:700}
+</style>
+<div class="auth-gate" id="authGate"><div class="auth-card"><div class="brandmark">F</div><div class="eyebrow">FESTFLOW ADMIN</div><h1>Welcome back.</h1><p>Sign in to manage the demo fest. All changes will be saved to the shared database and available across devices.</p><div class="field"><label>ADMIN EMAIL</label><input id="authEmail" type="email" autocomplete="username" placeholder="admin@college.edu"></div><div class="field"><label>PASSWORD</label><input id="authPassword" type="password" autocomplete="current-password" placeholder="Enter your password"></div><div class="auth-error" id="authError"></div><button class="btn" id="authLogin">Sign in to FestFlow</button><p style="font-size:10px;margin-top:16px">Demo access is invitation-only. No public registration is available.</p></div></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(function(){
+ const SUPABASE_URL='https://bczumadufjquimjlydev.supabase.co';
+ const SUPABASE_KEY='sb_publishable_TTSjGJSlktYJPyckc_aDwg_1Yh50_qQ';
+ const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+ const gate=document.getElementById('authGate'),err=document.getElementById('authError');
+ let currentUser=null,loadingRemote=false;
+ const snapshot=()=>({students:state.students,groups:state.groups,items:state.items,regs:state.regs,scores:state.scores,reported:[...state.reported],published:state.published});
+ const originalPersist=persist;
+ window.persist=function(){
+   originalPersist();
+   if(!currentUser||loadingRemote)return;
+   db.from('fest_demo_state').upsert({institution_slug:'advanta-institute-demo',payload:snapshot(),updated_at:new Date().toISOString(),updated_by:currentUser.id},{onConflict:'institution_slug'})
+    .then(({error})=>{if(error){console.error(error);toast('Cloud save failed: '+error.message)}else setSync('Saved to cloud')});
+ };
+ function setSync(s){let el=document.getElementById('syncStatus');if(el)el.textContent=s}
+ function applyPayload(p){if(!p)return;loadingRemote=true;
+   ['students','groups','items','regs','scores','published'].forEach(k=>{if(p[k]!==undefined)state[k]=p[k]});
+   state.reported=new Set(p.reported||[]);loadingRemote=false;
+ }
+ async function enter(user){
+   currentUser=user;setSync('Connecting…');
+   const {data,error}=await db.from('fest_demo_state').select('payload').eq('institution_slug','advanta-institute-demo').maybeSingle();
+   if(error){err.textContent='Database access error: '+error.message;currentUser=null;return}
+   if(data?.payload){applyPayload(data.payload)}
+   else {window.persist()}
+   gate.style.display='none';
+   const top=document.querySelector('.topright');
+   if(top&&!document.getElementById('syncStatus')){let s=document.createElement('span');s.id='syncStatus';s.className='sync-indicator';s.textContent='Cloud synced';top.prepend(s);let b=document.createElement('button');b.className='btn secondary small';b.textContent='Sign out';b.onclick=async()=>{await db.auth.signOut();location.reload()};top.append(b)}
+   render();setSync('Cloud synced');
+   db.channel('fest-demo-live').on('postgres_changes',{event:'*',schema:'public',table:'fest_demo_state',filter:'institution_slug=eq.advanta-institute-demo'},async payload=>{
+     if(payload.new?.updated_by===currentUser.id)return;
+     const {data}=await db.from('fest_demo_state').select('payload').eq('institution_slug','advanta-institute-demo').maybeSingle();
+     if(data?.payload){applyPayload(data.payload);render();setSync('Updated from another session')}
+   }).subscribe();
+ }
+ document.getElementById('authLogin').addEventListener('click',async()=>{
+   err.textContent='';let email=document.getElementById('authEmail').value.trim(),password=document.getElementById('authPassword').value;
+   if(!email||!password){err.textContent='Enter your admin email and password.';return}
+   let b=document.getElementById('authLogin');b.disabled=true;b.textContent='Signing in…';
+   const {data,error}=await db.auth.signInWithPassword({email,password});
+   b.disabled=false;b.textContent='Sign in to FestFlow';
+   if(error){err.textContent=error.message;return}await enter(data.user);
+ });
+ document.getElementById('authPassword').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('authLogin').click()});
+ db.auth.getSession().then(({data})=>{if(data.session)enter(data.session.user)});
+ db.auth.onAuthStateChange((event,session)=>{if(event==='SIGNED_OUT'){currentUser=null;gate.style.display='grid'}});
+ const nav=document.querySelector('.topright');if(nav){let s=document.createElement('span');s.id='syncStatus';s.className='sync-indicator';s.textContent='Sign in required';nav.prepend(s)}
+})();
+</script>
 </body></html>
