@@ -178,12 +178,12 @@ function schedulePage(){
  state.venues=Array.isArray(state.venues)&&state.venues.length?state.venues:[{id:1,name:'Main Auditorium',capacity:500},{id:2,name:'Open Air Stage',capacity:300},{id:3,name:'Seminar Hall',capacity:150}];
  state.scheduleSettings=state.scheduleSettings||{};
  const settings=state.items.map(it=>{const s=state.scheduleSettings[it.id]||{};return '<tr><td><b>'+esc(it.name)+'</b><div class="muted">'+it.type+' · '+state.regs.filter(r=>r.itemId===it.id).length+' registrations</div></td><td><select class="search" id="venue_'+it.id+'">'+state.venues.map(v=>'<option value="'+v.id+'" '+(String(s.venueId||state.venues[0].id)===String(v.id)?'selected':'')+'>'+esc(v.name)+'</option>').join('')+'</select></td><td><input class="scoreinput" type="number" min="1" max="240" id="duration_'+it.id+'" value="'+(s.duration||(it.type==='Individual'?5:15))+'"> min</td><td><input class="scoreinput" type="number" min="0" max="60" id="buffer_'+it.id+'" value="'+(s.buffer??2)+'"> min</td></tr>'}).join('');
- const rows=(state.schedule||[]).map(x=>'<tr><td><b>'+esc(x.start)+'</b><div class="muted">to '+esc(x.end)+'</div></td><td>'+esc(x.venueName)+'</td><td><b>'+esc(x.itemName)+'</b><div class="muted">'+esc(x.performer)+'</div></td><td>'+x.duration+' min</td><td><span class="tag purple">'+x.format+'</span></td></tr>').join('');
+ const rows=(state.schedule||[]).map(x=>'<tr><td><b>'+esc(x.start)+'</b><div class="muted">to '+esc(x.end)+'</div></td><td>'+esc(x.venueName)+'</td><td><b>'+esc(x.itemName)+'</b><div class="muted">'+esc(x.performer)+'</div></td><td>'+x.duration+' min</td><td><span class="tag purple">'+x.format+'</span></td><td><span class="tag '+(x.studentIds?'':'amber')+'">'+(x.studentIds?'Checked':'Review')+'</span></td></tr>').join('');
  return head('Venues & auto schedule','Run programmes simultaneously across campus venues. Set performance durations, then generate a clash-aware timetable.','<button class="btn" onclick="generateFestSchedule()">✦ Generate schedule</button>')+
  '<div class="grid stats">'+stat('VENUES',state.venues.length,'Campus performance spaces','⌂')+stat('PROGRAMME ITEMS',state.items.length,'Configured for scheduling','✦')+stat('SCHEDULED SLOTS',(state.schedule||[]).length,'Individual & team performances','◷')+stat('REGISTRATIONS',state.regs.length,'Scheduling input','▤')+'</div>'+
  panel('Campus venues','<div class="toolbar"><input class="search" id="venueName" placeholder="New venue name"><input class="search" id="venueCapacity" type="number" min="1" placeholder="Capacity"><button class="btn small" onclick="addFestVenue()">＋ Add venue</button></div><div class="grid groupcards">'+state.venues.map(v=>'<div class="groupcard"><div class="groupdot">⌂</div><h3>'+esc(v.name)+'</h3><p>'+v.capacity+' people capacity</p><button class="btn secondary small" onclick="removeFestVenue('+v.id+')">Remove venue</button></div>').join('')+'</div>')+
  panel('Performance duration & venue allocation','<div class="notice">Individual items are scheduled as one slot per registered student. Group items are scheduled as one performance per participating group. Duration is applied to each performance, with a buffer between slots.</div><div class="tablewrap"><table><thead><tr><th>Programme item / registrations</th><th>Venue</th><th>Performance duration</th><th>Buffer</th></tr></thead><tbody>'+settings+'</tbody></table></div><button class="btn secondary" onclick="saveScheduleSettings()">Save scheduling settings</button>')+
- panel('Generated campus timetable','<div class="toolbar"><label class="muted">Fest starts at</label><input class="search" id="scheduleStart" type="time" value="'+(state.scheduleStart||'09:00')+'"><label class="muted">Break between performances is configured above</label><button class="btn secondary small" onclick="window.print()">Print timetable</button></div>'+(state.schedule?.length?'<div class="tablewrap"><table><thead><tr><th>Time</th><th>Venue</th><th>Programme / performer</th><th>Duration</th><th>Format</th></tr></thead><tbody>'+rows+'</tbody></table></div>':'<div class="empty">No timetable generated yet. Configure venues and durations, then select Generate schedule.</div>'));
+ panel('Generated campus timetable','<div class="toolbar"><label class="muted">Fest starts at</label><input class="search" id="scheduleStart" type="time" value="'+(state.scheduleStart||'09:00')+'"><label class="muted">Break between performances is configured above</label><button class="btn secondary small" onclick="window.print()">Print timetable</button></div>'+(state.schedule?.length?'<div class="toolbar"><button class="btn secondary small" onclick="printFestSchedule()">Print all venues</button>'+state.venues.map(v=>'<button class="btn secondary small" onclick="printFestSchedule('+v.id+')">Print '+esc(v.name)+'</button>').join('')+'</div><div class="tablewrap"><table><thead><tr><th>Time</th><th>Venue</th><th>Programme / performer</th><th>Duration</th><th>Format</th><th>Conflict check</th></tr></thead><tbody>'+rows+'</tbody></table></div>':'<div class="empty">No timetable generated yet. Configure venues and durations, then select Generate schedule.</div>'));
 }
 window.addFestVenue=function(){const name=$('venueName').value.trim(),capacity=+$('venueCapacity').value;if(!name||capacity<1)return toast('Enter a venue name and valid capacity');if(state.venues.some(v=>v.name.toLowerCase()===name.toLowerCase()))return toast('Venue already exists');state.venues.push({id:Math.max(0,...state.venues.map(v=>v.id))+1,name,capacity});persist();render();toast('Venue added')};
 window.removeFestVenue=function(id){if(state.venues.length<=1)return toast('Keep at least one venue');if(!confirm('Remove this venue?'))return;state.venues=state.venues.filter(v=>v.id!==id);Object.values(state.scheduleSettings||{}).forEach(s=>{if(s.venueId===id)s.venueId=state.venues[0].id});state.schedule=[];persist();render();toast('Venue removed; regenerate the timetable')};
@@ -198,24 +198,38 @@ window.generateFestSchedule=function(){
  state.items.forEach(it=>{
   const regs=state.regs.filter(r=>r.itemId===it.id);const cfg=state.scheduleSettings[it.id]||{venueId:state.venues[0].id,duration:it.type==='Individual'?5:15,buffer:2};
   if(it.type==='Individual'){
-   regs.forEach(r=>{const st=state.students.find(s=>s.id===r.studentId);if(st)slots.push({item:it,performer:st.name+' · '+st.chest,format:'Individual',duration:cfg.duration,buffer:cfg.buffer,venueId:cfg.venueId});});
+   regs.forEach(r=>{const st=state.students.find(s=>s.id===r.studentId);if(st)slots.push({item:it,performer:st.name+' · '+st.chest,format:'Individual',duration:+cfg.duration,buffer:+cfg.buffer,venueId:+cfg.venueId,studentIds:[st.id]});});
   }else{
-   const teams={};regs.forEach(r=>{const st=state.students.find(s=>s.id===r.studentId);if(st)(teams[st.group||'Unassigned']??=[]).push(st);});
-   Object.entries(teams).forEach(([team,members])=>slots.push({item:it,performer:team+' team ('+members.length+' members)',format:'Group',duration:cfg.duration,buffer:cfg.buffer,venueId:cfg.venueId}));
+   const teams={};regs.forEach(r=>{const st=state.students.find(s=>s.id===r.studentId);if(st){const key=st.group||'Unassigned';if(!teams[key])teams[key]=new Map();teams[key].set(st.id,st);}});
+   Object.entries(teams).forEach(([team,members])=>{const list=[...members.values()];slots.push({item:it,performer:team+' team ('+list.length+' members)',format:'Group',duration:+cfg.duration,buffer:+cfg.buffer,venueId:+cfg.venueId,studentIds:list.map(s=>s.id)});});
   }
  });
- const clocks=state.venues.map(v=>({venue:v,free:base}));
- const scheduled=[];
+ // Larger teams are placed first; all performances remain on their configured venue.
+ slots.sort((a,b)=>b.studentIds.length-a.studentIds.length||a.item.name.localeCompare(b.item.name)||a.performer.localeCompare(b.performer));
+ const scheduled=[],venueFree=new Map(state.venues.map(v=>[v.id,base]));
+ const fmt=n=>String(Math.floor(n/60)%24).padStart(2,'0')+':'+String(n%60).padStart(2,'0');
  slots.forEach(slot=>{
-  let lane=clocks.find(x=>x.venue.id===slot.venueId)||clocks.reduce((a,b)=>a.free<=b.free?a:b);
-  const startAt=lane.free,endAt=startAt+slot.duration;
-  const fmt=n=>String(Math.floor(n/60)%24).padStart(2,'0')+':'+String(n%60).padStart(2,'0');
-  scheduled.push({start:fmt(startAt),end:fmt(endAt),startMin:startAt,venueName:lane.venue.name,itemName:slot.item.name,performer:slot.performer,duration:slot.duration,format:slot.format});
-  lane.free=endAt+slot.buffer;
+  const venue=state.venues.find(v=>v.id===slot.venueId)||state.venues[0];
+  let at=Math.max(base,venueFree.get(venue.id)||base),guard=0;
+  // Move the performance forward until every participant is free.
+  while(guard++<20000){
+   const clash=scheduled.filter(x=>x.studentIds?.some(id=>slot.studentIds.includes(id))&&at<x.endMin&&at+slot.duration>x.startMin);
+   if(!clash.length)break;
+   at=Math.max(...clash.map(x=>x.endMin+x.buffer));
+  }
+  const endAt=at+slot.duration;
+  scheduled.push({start:fmt(at),end:fmt(endAt),startMin:at,endMin:endAt,buffer:slot.buffer,venueId:venue.id,venueName:venue.name,itemId:slot.item.id,itemName:slot.item.name,performer:slot.performer,duration:slot.duration,format:slot.format,studentIds:slot.studentIds});
+  venueFree.set(venue.id,endAt+slot.buffer);
  });
- // Keep each venue's programme in chronological order.
  state.schedule=scheduled.sort((a,b)=>a.startMin-b.startMin||a.venueName.localeCompare(b.venueName));
- persist();render();toast('Campus timetable generated across '+state.venues.length+' venues');
+ state.scheduleGeneratedAt=new Date().toISOString();
+ persist();render();toast('Clash-aware timetable generated. Review venue-wise slots before publishing.');
+};
+window.printFestSchedule=function(venueId){
+ const list=(state.schedule||[]).filter(x=>!venueId||x.venueId===venueId).sort((a,b)=>a.startMin-b.startMin);
+ if(!list.length)return toast('Generate a timetable before printing');
+ const w=window.open('','_blank');if(!w)return toast('Allow pop-ups to print the timetable');
+ w.document.write('<!doctype html><html><head><title>FestFlow timetable</title><style>body{font:14px Arial;padding:24px;color:#17203a}h1{margin:0 0 5px}p{color:#667}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{padding:10px;border-bottom:1px solid #ddd;text-align:left}th{background:#f1efff}@media print{button{display:none}}</style></head><body><h1>AIM FEST 2026 · Programme timetable</h1><p>'+(venueId?'Venue: '+(state.venues.find(v=>v.id===venueId)?.name||'Selected venue'):'All campus venues')+'</p><table><thead><tr><th>Time</th><th>Venue</th><th>Programme</th><th>Performer</th><th>Duration</th></tr></thead><tbody>'+list.map(x=>'<tr><td>'+x.start+' – '+x.end+'</td><td>'+x.venueName+'</td><td>'+x.itemName+'</td><td>'+x.performer+'</td><td>'+x.duration+' min</td></tr>').join('')+'</tbody></table><script>window.onload=()=>window.print()<\/script></body></html>');w.document.close();
 };
 function stage(){
   const pending=state.regs.filter(r=>!state.reported.has(r.id)).slice(0,12);
