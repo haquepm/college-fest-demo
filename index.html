@@ -168,7 +168,7 @@ seed();render();if(state.page==='certificates')renderCert();
 
   const oldStudents=students, oldGroups=groups, oldRegs=registrations, oldPrograms=programs;
   students=function(){
-    return head('Student directory','Manage the complete student master, add records individually or import a CSV.','<button class="btn" onclick="addStudent()">＋ Add student</button>')+
+    return head('Student directory','Manage the complete student master, add records individually or import a CSV.','<button class="btn" onclick="addStudent()">＋ Add student</button><button class="btn secondary" onclick="bulkChestCards(\'print\')">▤ Print chest cards</button><button class="btn secondary" onclick="bulkChestCards(\'pdf\')">↓ Download bulk PDF</button>')+
     panel('All students','<div class="toolbar"><input class="search" id="studentSearch" placeholder="Search name, roll, department, group or chest..." oninput="filterStudents()"><button class="btn secondary small" onclick="openImport()">↑ Import CSV</button><button class="btn secondary small" onclick="downloadStudents()">↓ Export CSV</button><span class="muted">'+state.students.length+' records</span></div><div class="tablewrap"><table id="studentTable"><thead><tr><th>Name</th><th>Roll number</th><th>Department</th><th>Year</th><th>Group</th><th>Chest no.</th><th>Actions</th></tr></thead><tbody>'+studentRows(state.students)+'</tbody></table></div>');
   };
   function studentRows(arr){return arr.map(s=>'<tr><td><b>'+esc(s.name)+'</b></td><td>'+esc(s.roll)+'</td><td>'+esc(s.dept)+'</td><td>'+esc(s.year)+'</td><td>'+esc(s.group)+'</td><td>'+esc(s.chest)+'</td><td><button class="btn secondary small" onclick="editStudent('+s.id+')">Edit</button> <button class="btn secondary small" onclick="showStudentQR('+s.id+')">QR</button></td></tr>').join('')}
@@ -176,6 +176,32 @@ seed();render();if(state.page==='certificates')renderCert();
   window.addStudent=function(id){let s=id?state.students.find(x=>x.id===id):{name:'',roll:'',dept:depts[0],year:'I',group:state.groups[0]?.name||''};showModal('<h2>'+(id?'Edit student':'Add student')+'</h2>'+[['Name','stName',s.name],['Roll number','stRoll',s.roll]].map(x=>'<div class="field"><label>'+x[0]+'</label><input id="'+x[1]+'" value="'+esc(x[2])+'"></div>').join('')+'<div class="field"><label>DEPARTMENT</label><select id="stDept">'+depts.map(d=>'<option '+(d===s.dept?'selected':'')+'>'+d+'</option>').join('')+'</select></div><div class="field"><label>YEAR</label><select id="stYear">'+['I','II','III','IV'].map(y=>'<option '+(y===s.year?'selected':'')+'>'+y+'</option>').join('')+'</select></div><div class="field"><label>GROUP</label><select id="stGroup">'+state.groups.map(g=>'<option '+(g.name===s.group?'selected':'')+'>'+esc(g.name)+'</option>').join('')+'</select></div><div class="modalactions"><button class="btn secondary" onclick="closeModal()">Cancel</button><button class="btn" onclick="saveStudent('+(id||0)+')">Save student</button></div>')};
   window.editStudent=id=>addStudent(id);
   window.saveStudent=function(id){let name=$('stName').value.trim(),roll=$('stRoll').value.trim();if(!name||!roll)return toast('Name and roll number are required');if(state.students.some(s=>s.roll.toLowerCase()===roll.toLowerCase()&&s.id!==id))return toast('Roll number already exists');let s=state.students.find(x=>x.id===id);if(!s){let n=Math.max(0,...state.students.map(x=>x.id))+1;s={id:n,chest:'AIM-'+String(n).padStart(4,'0')};state.students.push(s)}Object.assign(s,{name,roll,dept:$('stDept').value,year:$('stYear').value,group:$('stGroup').value});persist();closeModal();render();toast('Student record saved')};
+
+  window.bulkChestCards=function(mode){
+    const popup=window.open('','_blank');if(!popup){toast('Allow pop-ups to print chest cards');return;}
+    const records=state.students.map(st=>({id:st.id,name:st.name,roll:st.roll,dept:st.dept,group:st.group,chest:st.chest}));
+    popup.document.open();
+    popup.document.write('<!doctype html><html><head><meta charset="utf-8"><title>FestFlow chest cards</title><style>@page{size:A4;margin:10mm}body{font-family:Arial,sans-serif;color:#17152d;margin:0}.hint{padding:12px;background:#f2efff;margin-bottom:12px;font-size:13px}.cards{display:grid;grid-template-columns:1fr 1fr;gap:5mm}.card{height:57mm;border:1px solid #aaa;border-radius:8px;padding:5mm;display:flex;align-items:center;gap:5mm;break-inside:avoid;page-break-inside:avoid}.qr{width:32mm;height:32mm;flex:0 0 32mm}.qr img{width:100%;height:100%}.name{font-size:15px;font-weight:bold}.chest{font-size:20px;font-weight:800;margin:5px 0}.meta{font-size:10px;color:#555}@media print{.hint{display:none}}</style></head><body><div class="hint">'+(mode==='pdf'?'Choose Save as PDF in the print dialog to download all '+records.length+' chest cards.':'Print-ready chest cards · '+records.length+' students.')+'</div><div id="cards" class="cards"></div></body></html>');
+    popup.document.close();
+    const script=popup.document.createElement('script');script.src='https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+    script.onload=function(){
+      const root=popup.document.getElementById('cards');
+      records.forEach(st=>{
+        const card=popup.document.createElement('article');card.className='card';
+        const qr=popup.document.createElement('div');qr.className='qr';
+        const info=popup.document.createElement('div');
+        const brand=popup.document.createElement('div');brand.textContent='AIM FEST 2026 · CANDIDATE';brand.style.cssText='font-size:8px;letter-spacing:1px;color:#6042c8;margin-bottom:4px';
+        const name=popup.document.createElement('div');name.className='name';name.textContent=st.name;
+        const chest=popup.document.createElement('div');chest.className='chest';chest.textContent=st.chest;
+        const meta=popup.document.createElement('div');meta.className='meta';meta.textContent=[st.roll,st.dept,st.group].filter(Boolean).join(' · ');
+        info.append(brand,name,chest,meta);card.append(qr,info);root.append(card);
+        new popup.QRCode(qr,{text:JSON.stringify({chest:st.chest,studentId:st.id}),width:180,height:180});
+      });
+      popup.setTimeout(()=>popup.print(),900);
+    };
+    script.onerror=function(){popup.document.body.insertAdjacentText('beforeend',' QR library failed to load. Please check internet and try again.');};
+    popup.document.head.appendChild(script);
+  };
   window.showStudentQR=function(id){let s=state.students.find(x=>x.id===id);showModal('<h2>Candidate QR code</h2><p class="sub">'+esc(s.name)+' · '+esc(s.chest)+'</p><div id="studentQr" style="display:grid;place-items:center;padding:20px"></div><div class="modalactions"><button class="btn secondary" onclick="closeModal()">Close</button><button class="btn" onclick="window.print()">Print QR</button></div>');if(window.QRCode)new QRCode($('studentQr'),{text:JSON.stringify({chest:s.chest,studentId:s.id}),width:180,height:180})};
   groups=function(){return head('Groups & departments','Create mixed teams from one or more departments, then allocate students.','<button class="btn" onclick="shuffleGroups()">⤨ Auto shuffle</button>')+
     '<div class="notice">Select multiple departments when creating a combined group. Students can be reassigned through the student directory.</div>'+
