@@ -81,7 +81,7 @@ input,select{min-height:42px}
  .auth-card{padding:24px 20px;border-radius:18px}
 }
 @media(min-width:701px){.mobile-nav{display:none!important}}
-</style>
+.stage-candidate-modal{display:none;position:fixed;inset:0;z-index:60;background:#17132bb8;align-items:center;justify-content:center;padding:18px}.stage-candidate-modal.show{display:flex}.stage-candidate-dialog{background:#fff;width:min(520px,100%);max-height:85dvh;overflow:auto;border-radius:20px;padding:22px;box-shadow:0 24px 70px #17132b35}.stage-candidate-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:17px}.stage-candidate-head h2{font:800 18px Manrope;margin:4px 0}.stage-modal-close{width:36px;height:36px;border-radius:50%;background:#f0edfa;color:#5540b4;font-size:25px;line-height:1}@media(max-width:700px){.stage-candidate-modal{padding:12px;align-items:flex-end}.stage-candidate-dialog{width:100%;max-height:82dvh;border-radius:20px 20px 12px 12px;padding:19px 16px calc(18px + env(safe-area-inset-bottom))}.stage-candidate-dialog .btn{min-height:50px;font-size:14px}}</style>
 </head>
 <body>
 <div class="app">
@@ -99,7 +99,7 @@ input,select{min-height:42px}
 <div class="sidebottom"><span class="demo-pill">DEMO ENVIRONMENT</span><br>Advanta Institute of Management<br>Annual Arts & Tech Fest 2026<br>Single Admin Demo · Full access to every module<br>All names and records are fictional.</div></aside>
 <main class="main"><header class="topbar"><div class="crumb">FestFlow <span style="padding:0 7px">/</span><b id="crumb">Overview</b></div><div class="topright"><span class="festname">AIM FEST 2026</span><span class="admin-access"><i></i> ADMIN · FULL ACCESS</span><div class="avatar">A</div></div></header>
 <div class="content" id="view"></div></main></div>
-<nav class="mobile-nav" id="mobileNav" aria-label="Mobile navigation">
+<div id="stageCandidateModal" class="stage-candidate-modal" role="dialog" aria-modal="true" aria-labelledby="stageCandidateTitle"><div class="stage-candidate-dialog"><div class="stage-candidate-head"><div><div class="eyebrow">STAGE CHECK-IN</div><h2 id="stageCandidateTitle">Candidate details</h2></div><button class="stage-modal-close" aria-label="Close" onclick="stageNextCandidate()">×</button></div><div id="stageCandidateModalBody"></div></div></div>\n<nav class="mobile-nav" id="mobileNav" aria-label="Mobile navigation">
 <button data-page="overview"><span>◫</span>Home</button><button data-page="students"><span>♙</span>Students</button><button data-page="groups"><span>◉</span>Groups</button><button data-page="programs"><span>✦</span>Events</button><button data-page="registrations"><span>▤</span>Entries</button><button data-page="stage"><span>▣</span>Stage</button><button data-page="judging"><span>★</span>Judges</button><button data-page="results"><span>♜</span>Results</button><button data-page="certificates"><span>▧</span>Certificates</button>
 </nav>\n<div class="modalback" id="modalback"><div class="modal" id="modal"></div></div><div class="toast" id="toast"></div>
 <script>
@@ -206,11 +206,12 @@ seed();render();if(state.page==='certificates')renderCert();
 
   let stageScanner=null, stageScanBusy=false, stageScanLocked=false;
   const stageCandidateMarkup=function(chest){
-    const clean=String(chest||'').trim().toUpperCase(), student=state.students.find(x=>String(x.chest||'').toUpperCase()===clean), host=$('stageCandidate');
-    if(!host)return;
-    if(!student){host.innerHTML='<div class="notice" style="background:#fff0f1;color:#a22">No candidate found for chest number '+esc(clean)+'.</div>';return;}
+    const clean=String(chest||'').trim().toUpperCase(), student=state.students.find(x=>String(x.chest||'').toUpperCase()===clean), body=$('stageCandidateModalBody'), modal=$('stageCandidateModal');
+    if(!body||!modal)return;
+    modal.classList.add('show');
+    if(!student){body.innerHTML='<div class="notice" style="background:#fff0f1;color:#a22">No candidate found for chest number '+esc(clean)+'. Please check the QR code and try again.</div><button class="btn" style="width:100%;margin-top:16px" onclick="stageNextCandidate()">Scan next candidate</button>';return;}
     const regs=state.regs.filter(r=>r.studentId===student.id), items=regs.map(r=>state.items.find(x=>x.id===r.itemId)).filter(Boolean), allDone=regs.length>0&&regs.every(r=>state.reported.has(r.id));
-    host.innerHTML='<div class="panel" style="margin-top:14px"><div class="eyebrow">CANDIDATE IDENTIFIED</div><h2 style="margin:6px 0">'+esc(student.name)+'</h2><div class="muted">'+esc(student.chest)+' · '+esc(student.roll)+' · '+esc(student.dept)+' · '+esc(student.group)+'</div><h3 style="margin:18px 0 8px">Registered programme items ('+items.length+')</h3>'+(items.length?'<ul style="padding-left:20px;line-height:1.9">'+items.map((it,i)=>'<li>'+esc(it.name)+' <span class="tag">'+esc(it.type)+'</span> <span class="tag '+(state.reported.has(regs[i]?.id)?'':'amber')+'">'+(state.reported.has(regs[i]?.id)?'Reported':'Pending')+'</span></li>').join('')+'</ul>':'<div class="muted">No programme registrations found for this candidate.</div>')+(allDone?'<button class="btn secondary" style="margin-top:12px" onclick="stageNextCandidate()">Next candidate scan →</button>':'<button class="btn" style="margin-top:12px" '+(!regs.length?'disabled':'')+' onclick="markStageCandidate('+student.id+')">Confirm candidate reported</button>')+'</div>';
+    body.innerHTML='<div class="eyebrow">CANDIDATE IDENTIFIED</div><h2 style="font:800 23px Manrope;margin:7px 0 5px">'+esc(student.name)+'</h2><div class="muted">'+esc(student.chest)+' · '+esc(student.roll)+' · '+esc(student.dept)+' · '+esc(student.group)+'</div><div style="margin:18px 0 9px;font-weight:800">Registered programme items ('+items.length+')</div>'+(items.length?'<div style="display:grid;gap:9px">'+items.map((it,i)=>'<div style="padding:11px 12px;border:1px solid var(--line);border-radius:11px;display:flex;align-items:center;justify-content:space-between;gap:8px"><b>'+esc(it.name)+'</b><span class="tag '+(state.reported.has(regs[i]?.id)?'':'amber')+'">'+(state.reported.has(regs[i]?.id)?'Reported':'Pending')+'</span></div>').join('')+'</div>':'<div class="muted">No programme registrations found.</div>')+(allDone?'<div class="notice" style="margin-top:15px;background:#fff8e8;color:#8a6411">This candidate has already been reported.</div><button class="btn" style="width:100%;margin-top:16px" onclick="stageNextCandidate()">Scan next candidate →</button>':'<button class="btn" style="width:100%;margin-top:18px" '+(!regs.length?'disabled':'')+' onclick="markStageCandidate('+student.id+')">✓ Confirm candidate reported</button>');
   };
   window.stageCandidateScanned=function(decoded){
     if(stageScanLocked)return;
@@ -222,7 +223,8 @@ seed();render();if(state.page==='certificates')renderCert();
   window.stageNextCandidate=function(){
     stageScanLocked=false;
     const input=$('chestInput');if(input)input.value='';
-    const host=$('stageCandidate');if(host)host.innerHTML='';
+    const modal=$('stageCandidateModal');if(modal)modal.classList.remove('show');
+    const body=$('stageCandidateModalBody');if(body)body.innerHTML='';
     const status=$('stageScanStatus');if(status)status.textContent='Camera active. Ready to scan the next candidate QR code.';
   };
   window.lookupStageCandidate=function(){stageCandidateMarkup($('chestInput')?.value||'');};
@@ -230,8 +232,8 @@ seed();render();if(state.page==='certificates')renderCert();
     const regs=state.regs.filter(r=>r.studentId===studentId);if(!regs.length)return toast('No registrations found for this candidate');
     const fresh=regs.filter(r=>!state.reported.has(r.id));if(!fresh.length){stageScanLocked=false;return toast('This candidate has already been reported');}
     fresh.forEach(r=>state.reported.add(r.id));persist();
-    const student=state.students.find(x=>x.id===studentId),host=$('stageCandidate');
-    if(host)host.innerHTML='<div class="notice" style="margin-top:14px;background:#eaf8f1;color:#087b55"><b>✓ '+esc(student?.name||'Candidate')+'</b> reported successfully for '+fresh.length+' programme item(s). Scan the next candidate when ready.</div>';
+    const student=state.students.find(x=>x.id===studentId),body=$('stageCandidateModalBody');
+    if(body)body.innerHTML='<div style="text-align:center;padding:8px 0 14px"><div style="width:58px;height:58px;border-radius:50%;background:#e7f8ef;color:#11865b;display:grid;place-items:center;font-size:30px;margin:0 auto 12px">✓</div><div class="eyebrow">CHECK-IN SUCCESSFUL</div><h2 style="font:800 21px Manrope;margin:7px 0">'+esc(student?.name||'Candidate')+'</h2><div class="muted">Reported for '+fresh.length+' programme item(s).</div></div><button class="btn" style="width:100%" onclick="stageNextCandidate()">Scan next candidate →</button>';
     const status=$('stageScanStatus');if(status)status.textContent='Camera active. Ready for the next candidate — no need to restart.';
     const count=$('stageReportedCount');if(count)count.textContent=state.reported.size;
     stageScanLocked=false;toast((student?.name||'Candidate')+' marked as reported. Camera is still active.');
